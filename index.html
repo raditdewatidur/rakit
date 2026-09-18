@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Script Assembler — SQLite</title>
+<style>
+  :root{
+    --bg:#181616; --panel:#211e1d; --panel2:#28241f; --line:#3a352f;
+    --gold:#c99a4a; --gold-dim:#8a6a35; --text:#ece7de; --text-dim:#a89f8f;
+    --text-faint:#726a5c; --danger:#c1584a; --ok:#7a9b6e;
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg); color:var(--text); margin:0; padding:24px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+  h1,h2,h3{font-family:'Georgia','Iowan Old Style',serif; font-weight:400;}
+  h1{font-size:22px; margin:0 0 4px;}
+  .subtitle{color:var(--text-dim); font-size:13px; margin:0 0 20px;}
+  .tabs{display:flex; gap:2px; border-bottom:1px solid var(--line); margin-bottom:20px;}
+  .tab{padding:10px 18px; cursor:pointer; font-size:13px; color:var(--text-dim); border-bottom:2px solid transparent;}
+  .tab.active{color:var(--gold); border-bottom-color:var(--gold);}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px 20px; margin-bottom:16px;}
+  label{display:block; font-size:12px; color:var(--text-dim); margin-bottom:4px; margin-top:12px;}
+  label:first-child{margin-top:0;}
+  select, input[type=text], input[type=number], textarea{
+    width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--text);
+    padding:8px 10px; border-radius:6px; font-size:13px; font-family:inherit;
+  }
+  textarea{min-height:70px; resize:vertical; font-family:'SF Mono',monospace; font-size:12px;}
+  .row{display:flex; gap:12px;} .row > div{flex:1;}
+  button{background:var(--gold-dim); color:#1a1712; border:none; padding:9px 16px; border-radius:6px; font-size:13px; cursor:pointer; font-weight:600; margin-top:14px; margin-right:8px;}
+  button:hover{background:var(--gold);}
+  button.secondary{background:transparent; border:1px solid var(--line); color:var(--text-dim); font-weight:400;}
+  button.secondary:hover{border-color:var(--gold-dim); color:var(--gold);}
+  button.small{padding:4px 10px; font-size:11px; margin-top:0;}
+  table{width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;}
+  th{text-align:left; color:var(--text-faint); font-weight:400; padding:6px 8px; border-bottom:1px solid var(--line); font-size:11px; text-transform:uppercase;}
+  td{padding:8px; border-bottom:1px solid var(--line); vertical-align:top;}
+  .badge{display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; background:var(--panel2); color:var(--text-dim); border:1px solid var(--line);}
+  .empty{color:var(--text-faint); font-size:13px; padding:30px 0; text-align:center;}
+  .block-seq{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0;}
+  .block-chip{padding:5px 10px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; font-size:12px; color:var(--text-dim); display:inline-flex; align-items:center; gap:6px;}
+  .block-chip-btn{background:var(--panel2); color:var(--text); border:1px solid var(--line); padding:5px 10px; border-radius:6px; font-size:12px; font-weight:400; margin:0; cursor:pointer;}
+  .block-chip-btn:hover{border-color:var(--gold-dim); color:var(--gold); background:var(--panel2);}
+  .block-chip .mini-btn{background:transparent; border:1px solid var(--line); color:var(--text-dim); padding:1px 6px; border-radius:4px; font-size:10px; margin:0; cursor:pointer;}
+  .block-chip .mini-btn:hover{border-color:var(--gold-dim); color:var(--gold);}
+  .block-chip .mini-btn:disabled{opacity:.3; cursor:not-allowed;}
+  .emosi-seq{display:flex; flex-direction:column; gap:6px; margin:10px 0;}
+  .emosi-row{display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; flex-wrap:wrap;}
+  .emosi-row .pos-label{flex:1; font-size:12px; color:var(--text-dim); min-width:140px;}
+  .emosi-row .emosi-lbl{font-size:11px; color:var(--text-faint);}
+  .emosi-row input[type=number]{width:52px; padding:4px 6px; margin:0;}
+  .script-block{border-left:2px solid var(--gold-dim); padding:10px 14px; margin-bottom:10px; background:var(--panel2); border-radius:0 6px 6px 0;}
+  .script-block .lbl{font-size:10px; text-transform:uppercase; color:var(--gold); margin-bottom:4px;}
+  .script-block .txt{font-size:14px; line-height:1.6; white-space:pre-line;}
+  .script-block .meta{font-size:11px; color:var(--text-faint); margin-top:6px;}
+  .checklist-item{display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px;}
+  .status-msg{font-size:12px; padding:8px 12px; border-radius:6px; margin-top:10px;}
+  .status-msg.ok{background:rgba(122,155,110,.15); color:var(--ok); border:1px solid rgba(122,155,110,.3);}
+  .status-msg.warn{background:rgba(193,88,74,.15); color:var(--danger); border:1px solid rgba(193,88,74,.3);}
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-top:10px;}
+  .stat{background:var(--panel2); border-radius:6px; padding:10px 12px; text-align:center;}
+  .stat .num{font-size:20px; color:var(--gold); font-family:Georgia,serif;}
+  .stat .lb{font-size:10px; color:var(--text-faint); margin-top:2px; text-transform:uppercase;}
+  .hint{font-size:11px; color:var(--text-faint); margin-top:6px; line-height:1.5;}
+  .center{text-align:center; padding:40px 20px;}
+  .file-drop{border:1px dashed var(--line); border-radius:8px; padding:24px; text-align:center; margin-top:10px;}
+  #app{display:none;}
+</style>
+</head>
+<body>
+
+<h1>Script Assembler</h1>
+<p class="subtitle">Terhubung ke SQLite — kompatibel langsung dengan DBeaver</p>
+<p class="subtitle" id="storage-mode" style="margin-top:-14px;"></p>
+
+<div id="setup" class="card">
+  <div class="center" id="setup-loading">Memuat mesin SQLite...</div>
+  <div id="setup-ready" style="display:none;">
+    <p style="font-size:13px; color:var(--text-dim);">Belum ada database aktif di sesi ini. Pilih salah satu:</p>
+    <div class="file-drop">
+      <p style="margin:0 0 10px; font-size:13px;">Upload file .sqlite yang sudah ada (mis. hasil download dari DBeaver)</p>
+      <input type="file" id="file-input" accept=".sqlite,.db">
+    </div>
+    <p style="text-align:center; color:var(--text-faint); font-size:12px; margin:14px 0;">— atau —</p>
+    <div style="text-align:center;">
+      <button id="btn-new-empty">Buat database kosong (skema saja)</button>
+      <button id="btn-new-seed" class="secondary">Buat database + isi data contoh</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="tabs">
+    <div class="tab active" data-tab="db">Database</div>
+    <div class="tab" data-tab="rakit">Rakit script</div>
+    <div class="tab" data-tab="qc">Quality check</div>
+    <div class="tab" data-tab="riwayat">Riwayat</div>
+    <div class="tab" data-tab="file">File</div>
+  </div>
+  <div id="panel-db" class="panel"></div>
+  <div id="panel-rakit" class="panel"></div>
+  <div id="panel-qc" class="panel"></div>
+  <div id="panel-riwayat" class="panel"></div>
+  <div id="panel-file" class="panel"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const BLOKS = [
+  {key:'hook', label:'Hook', prefix:'H'}, {key:'gejala', label:'Gejala', prefix:'G'},
+  {key:'masalah', label:'Masalah', prefix:'M'}, {key:'miskonsepsi', label:'Miskonsepsi', prefix:'MK'},
+  {key:'akarpenyebab', label:'Akar penyebab', prefix:'AP'}, {key:'penjelasanpsikologi', label:'Penjelasan psikologi', prefix:'PP'},
+  {key:'solusi', label:'Solusi', prefix:'S'}, {key:'cerita', label:'Cerita / studi kasus', prefix:'C'},
+  {key:'patterninterrupt', label:'Pattern interrupt', prefix:'PI'}, {key:'dampak', label:'Dampak', prefix:'D'},
+  {key:'futurepacing', label:'Future pacing', prefix:'FP'}, {key:'actionstep', label:'Action step', prefix:'AS'},
+  {key:'closing', label:'Closing', prefix:'CL'}, {key:'cta', label:'CTA', prefix:'CTA'},
+  {key:'revealkonsep', label:'Reveal konsep', prefix:'RK'},
+  {key:'contohaplikasi', label:'Contoh aplikasi', prefix:'CA'},
+  {key:'mekanismekerja', label:'Mekanisme kerja', prefix:'MKJ'},
+  {key:'spiritualanchor', label:'Spiritual anchor', prefix:'SA'},
+  {key:'layeringkontradiksi', label:'Layering kontradiksi', prefix:'LK'},
+  {key:'groundingkonsep', label:'Grounding konsep', prefix:'GK'},
+  {key:'pivotstatement', label:'Pivot statement', prefix:'PV'},
+  {key:'audiencesplit', label:'Audience split', prefix:'ADS'},
+  {key:'paradoksinti', label:'Paradoks inti', prefix:'PDX'},
+  {key:'brandnarasi', label:'Brand dalam narasi', prefix:'BN'},
+  {key:'empowermentflip', label:'Empowerment flip', prefix:'EF'},
+  {key:'methodreveal', label:'Method reveal', prefix:'MR'},
+  {key:'benefitstacking', label:'Benefit stacking', prefix:'BS'},
+  {key:'consequenceline', label:'Consequence line', prefix:'CSQ'},
+  {key:'brandkontras', label:'Brand kontras', prefix:'BK'},
+  {key:'realitycheck', label:'Reality check', prefix:'RC'},
+  {key:'permissiontotal', label:'Permission total', prefix:'PT'},
+  {key:'manual', label:'Blok manual', prefix:'MAN'},
+];
+
+const FLOWS_DEF = {
+ "6": ["Fase 6 - Partner menjauh", 4, 6, ["hook","gejala","miskonsepsi","akarpenyebab","penjelasanpsikologi","solusi","futurepacing","cta"]],
+ "7": ["Fase 7 - Baru putus", 1, 4, ["hook","gejala","cerita","penjelasanpsikologi","miskonsepsi","solusi","closing","cta"]],
+ "8": ["Fase 8 - Ingin balikan", 4, 6, ["hook","masalah","miskonsepsi","penjelasanpsikologi","solusi","cerita","actionstep","cta"]],
+ "10": ["Fase 10 - Toxic loop kronis", 7, 9, ["hook","patterninterrupt","gejala","akarpenyebab","penjelasanpsikologi","dampak","solusi","cta"]],
+ "7-8": ["Fase 7 ke 8", 3, 6, ["hook","gejala","miskonsepsi","penjelasanpsikologi","akarpenyebab","solusi","closing","cta"]],
+ "3-4": ["Fase 3 ke 4", 3, 6, ["hook","gejala","miskonsepsi","akarpenyebab","penjelasanpsikologi","solusi","closing","cta"]],
+ "4-5": ["Fase 4 ke 5", 3, 6, ["hook","gejala","akarpenyebab","penjelasanpsikologi","miskonsepsi","solusi","actionstep","cta"]],
+ "5-6": ["Fase 5 ke 6", 4, 7, ["hook","gejala","penjelasanpsikologi","akarpenyebab","miskonsepsi","solusi","futurepacing","cta"]],
+ "7-9": ["Fase 7 ke 9", 3, 6, ["hook","gejala","miskonsepsi","akarpenyebab","penjelasanpsikologi","solusi","closing","cta"]],
+ "8-6": ["Fase 8 ke 6", 5, 8, ["hook","gejala","miskonsepsi","penjelasanpsikologi","akarpenyebab","solusi","closing","cta"]],
+ "9-1_2": ["Fase 9 ke 1/2", 3, 6, ["hook","gejala","akarpenyebab","penjelasanpsikologi","miskonsepsi","solusi","actionstep","cta"]],
+ "10-9": ["Fase 10 ke 9", 4, 7, ["hook","gejala","penjelasanpsikologi","miskonsepsi","akarpenyebab","solusi","closing","cta"]],
+ "6-7": ["Fase 6 ke 7", 5, 8, ["hook","gejala","penjelasanpsikologi","miskonsepsi","akarpenyebab","solusi","closing","cta"]],
+ "9-10": ["Fase 9 ke 10", 5, 8, ["hook","patterninterrupt","gejala","akarpenyebab","penjelasanpsikologi","solusi","closing","cta"]],
+ "2-3": ["Fase 2 ke 3", 3, 5, ["hook","gejala","miskonsepsi","penjelasanpsikologi","solusi","futurepacing","closing","cta"]],
+ "awareness": ["Awareness / Top-of-Funnel", 3, 7, ["hook","dampak","revealkonsep","contohaplikasi","mekanismekerja","solusi","spiritualanchor","futurepacing","cta"]],
+ "pendulum": ["Pendulum Paradox", 4, 8, ["hook","layeringkontradiksi","revealkonsep","groundingkonsep","contohaplikasi","gejala","solusi","pivotstatement","audiencesplit","mekanismekerja","paradoksinti","closing","brandnarasi","spiritualanchor","empowermentflip","methodreveal","benefitstacking","permissiontotal","consequenceline","brandkontras","realitycheck","cta"]],
+ "s1_dicariin_duluan": ["S1 — Kamu yang dicariin duluan (Fase 6,7,8)", 5, 8, ["hook","miskonsepsi","cerita","patterninterrupt","solusi","gejala","akarpenyebab","miskonsepsi","penjelasanpsikologi","cerita","patterninterrupt","dampak","manual","cerita","gejala","actionstep","penjelasanpsikologi","cta"]],
+ "s2_avoidant_npd": ["S2 — Dia avoidant dia NPD (Fase 10)", 5, 9, ["hook","patterninterrupt","akarpenyebab","penjelasanpsikologi","miskonsepsi","penjelasanpsikologi","solusi","manual","penjelasanpsikologi","solusi","miskonsepsi","penjelasanpsikologi","actionstep","cerita","actionstep","gejala","solusi","dampak","cta"]],
+ "s3_dingin_bersimpuh": ["S3 — Dingin jadi bersimpuh (Fase 6,7,8)", 5, 8, ["hook","cerita","patterninterrupt","solusi","akarpenyebab","miskonsepsi","penjelasanpsikologi","actionstep","cerita","patterninterrupt","dampak","gejala","cta"]],
+ "s4_bersujud_sihir_putih": ["S4 — Bersujud sujud / sihir putih (Universal)", 5, 9, ["hook","cerita","patterninterrupt","solusi","actionstep","solusi","penjelasanpsikologi","miskonsepsi","patterninterrupt","dampak","cerita","manual","patterninterrupt","penjelasanpsikologi","dampak","gejala","cta"]],
+ "s5_menang_kehilangan": ["S5 — Dia yang menang jadi kehilangan (Fase 7,8)", 5, 8, ["hook","penjelasanpsikologi","futurepacing","solusi","actionstep","patterninterrupt","futurepacing","penjelasanpsikologi","gejala","actionstep","dampak","cta"]],
+ "s6_sayang_karena_uang": ["S6 — Sayang cuma kalau ada uangnya (Fase 10)", 5, 8, ["hook","cerita","gejala","patterninterrupt","solusi","cerita","miskonsepsi","manual","penjelasanpsikologi","cerita","penjelasanpsikologi","gejala","cta"]],
+ "s7_vc_pepet_gebetan": ["S7 — VC pepet gebetan / narasi (Fase 6)", 4, 9, ["hook","cerita","cerita","solusi","cerita","patterninterrupt","cerita","penjelasanpsikologi","miskonsepsi","manual","dampak","cerita","manual","solusi","cerita","gejala","cta"]],
+};
+
+const QC_ITEMS = [
+  'Transisi mulus dari awal sampai akhir',
+  'Kosakata brand maksimal 2-3 kali, tidak diulang istilah sama',
+  'Nada emosi naik-turun wajar, tidak random',
+  'Tidak ada forbidden words (sangat, tentunya, pastinya, harus, oleh karena itu)',
+  'Satu napas per baris terjaga',
+  'Tidak ada klaim / janji berlebihan',
+  'CTA sesuai nada Fase',
+  'Panjang sesuai target durasi',
+  'Lolos baca cepat tanpa tersandung',
+  '[Pendulum] Paradoks inti bikin penonton berhenti — bukan langsung explained',
+  '[Pendulum] Empowerment flip ada kontras objek→subjek yang jelas',
+  '[Pendulum] Consequence line cuma 1 kalimat, netral bukan ceramah',
+  '[Pendulum] Brand muncul dalam narasi, bukan di segment jualan',
+  '[S1-S6] Cerita awal = social proof ringan (1-2 kalimat), cerita tengah = testimoni angka spesifik',
+  '[S1-S6] Pattern interrupt pertama = kontra-intuitif, kedua = warning transition sebelum dampak',
+  '[S1-S6] Dampak pakai format list 3-4 poin, power reversal di poin terakhir',
+  '[S1-S6] Miskonsepsi wajib distansi dari klenik (jin/tumbal/susuk/dukun)',
+  '[S1-S6] Gejala terakhir = re-entry (tarik penonton balik ke kondisi sekarang sebelum CTA)',
+  '[S7] Cerita mendominasi ~40% script, flow narasi orang pertama',
+  '[S7] Pattern interrupt = plot twist (momen kejutan dalam cerita)',
+  '[S7] Manual = disclaimer etis wajib ada kalau topik sensitif (pacar orang, dll)',
+];
+
+let SQL = null;
+let db = null;
+let currentTab = 'db';
+let selectedBlok = 'hook';
+let currentFase = '7';
+let dbSortCol = 'id';
+let dbSortDir = 'asc';
+let dbFilterFase = '';
+let dbFilterEmosiMin = '';
+let dbFilterEmosiMax = '';
+let dbFilterMultiline = false;
+let rakitMultilineOnly = false;
+let rakitEmosiOverride = [];
+let rakitEmosiOverrideFase = null;
+let rakitSubtipeOverride = [];
+let dbSelectedIds = new Set();
+let lastAssembled = null;
+let qcChecked = {};
+
+// Storage adapter: pakai window.storage kalau tersedia (di dalam Claude),
+// fallback ke IndexedDB kalau file ini dibuka langsung di browser HP/desktop.
+const IDB_NAME = 'script_assembler_local';
+const IDB_STORE = 'kv';
+let idbInstance = null;
+
+function openIdb(){
+  return new Promise((resolve, reject) => {
+    if(idbInstance){ resolve(idbInstance); return; }
+    if(!('indexedDB' in window)){ reject(new Error('IndexedDB tidak didukung')); return; }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = () => { idbInstance = req.result; resolve(idbInstance); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key){
+  const database = await openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSet(key, value){
+  const database = await openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+const hasClaudeStorage = () => typeof window.storage !== 'undefined' && window.storage !== null;
+const storageAdapter = {
+  async get(key){
+    if(hasClaudeStorage()){
+      try{ const res = await window.storage.get(key, false); return res ? res.value : null; }catch(e){}
+    }
+    try{ return await idbGet(key); }catch(e){ return null; }
+  },
+  async set(key, value){
+    if(hasClaudeStorage()){
+      try{ await window.storage.set(key, value, false); return; }catch(e){}
+    }
+    try{ await idbSet(key, value); }catch(e){ console.error('Gagal menyimpan lokal', e); }
+  }
+};
+
+const SCHEMA_SQL = `
+CREATE TABLE blocks (
+  id TEXT PRIMARY KEY, blok TEXT NOT NULL, teks TEXT NOT NULL, subtipe TEXT,
+  fase_cocok TEXT, level_emosi INTEGER, nada TEXT, kosakata_brand TEXT,
+  cocok_dipasang_dengan TEXT, sudah_dipakai INTEGER DEFAULT 0
+);
+CREATE TABLE flows (
+  fase_key TEXT NOT NULL, fase_label TEXT NOT NULL, urutan INTEGER NOT NULL,
+  blok TEXT NOT NULL, level_emosi_min INTEGER, level_emosi_max INTEGER
+);
+CREATE TABLE block_spec (
+  blok TEXT PRIMARY KEY, panjang_pasti TEXT, larangan TEXT, kosakata_brand_cocok TEXT
+);
+CREATE TABLE script_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, fase_key TEXT, signature TEXT,
+  script_text TEXT, created_at TEXT
+);
+CREATE TABLE custom_flows (
+  fase_key TEXT PRIMARY KEY, fase_label TEXT NOT NULL,
+  level_emosi_min INTEGER NOT NULL, level_emosi_max INTEGER NOT NULL,
+  urutan_json TEXT NOT NULL, created_at TEXT
+);
+`;
+
+function insertFlowsSchema(){
+  for(const key in FLOWS_DEF){
+    const [label, lo, hi, seq] = FLOWS_DEF[key];
+    seq.forEach((blok,i)=>{
+      db.run("INSERT INTO flows (fase_key, fase_label, urutan, blok, level_emosi_min, level_emosi_max) VALUES (?,?,?,?,?,?)",
+        [key, label, i+1, blok, lo, hi]);
+    });
+  }
+}
+
+const SEED_BLOCKS = [
+ ["H001","hook","Kamu nggak butuh dia bilang apa-apa. Rasa Bocor itu udah kasih tau semuanya.","Curiosity","Universal",5,"Menyadarkan","Rasa Bocor"],
+ ["H002","hook","Ada diam yang nyakitin. Ada diam yang bikin dia yang balik nyariin.","Contrarian","8",6,"Menyadarkan","Diam Ratu"],
+ ["H003","hook","Kenapa makin kamu kejar, dia makin jauh?","Question","8",5,"Menyadarkan",""],
+ ["H004","hook","Ini bukan soal cinta yang kuat. Ini pola yang kamu ulang tanpa sadar.","Shock","10",8,"Menegur",""],
+ ["H005","hook","Kamu masih cek story dia jam segini, ya?","Question","7",3,"Menemani",""],
+ ["G001","gejala","Kamu masih buka chat yang sama, berkali-kali.\nBukan buat baca ulang. Cuma buat mastiin dia masih di sana.","Perilaku","7",3,"Menemani",""],
+ ["G002","gejala","Responnya makin singkat.\nInisiatifnya makin jarang.","Perilaku","6",5,"Menyadarkan",""],
+ ["G003","gejala","Kamu udah putus-balikan berapa kali,\ntapi selalu balik ke masalah yang sama.","Kebiasaan","10",8,"Menegur",""],
+ ["M001","masalah","Kamu udah coba banyak cara biar dia balik.\nTapi semua usaha itu justru bikin dia makin jauh.","Kesalahan","8",5,"Menyadarkan","Gravitasi Batin"],
+ ["MK001","miskonsepsi","Kamu pikir makin sering chat, makin besar peluang dia balik.\nPadahal itu yang bikin dia makin menjauh.","Soal Usaha","8",6,"Menyadarkan","Gravitasi Sunyi"],
+ ["MK002","miskonsepsi","Kalau sakit, berarti masih cinta banget.\nPadahal itu wajar, dan bukan berarti harus balik.","Soal Diri Sendiri","7",3,"Menenangkan",""],
+ ["AP001","akarpenyebab","Bukan soal dia berubah.\nIni soal kamu belum selesai sama rasa nggak amanmu sendiri.","Ketakutan Sendiri","8",6,"Menyadarkan","Ikhtiar Batin"],
+ ["PP001","penjelasanpsikologi","Ini bukan lemah. Ini limbic resonance —\notakmu ikut ngerasain apa yang biasa dia kasih.","Neurosains","7",3,"Menenangkan","Wening"],
+ ["S001","solusi","Bukan dengan ngejar. Tapi dengan Diam Bernyawa —\ndiam yang isinya kamu lagi membenahi diri.","Prinsip Diri","8",5,"Menguatkan","Diam Bernyawa, Magnet Hening"],
+ ["S002","solusi","Kamu nggak perlu buru-buru sembuh.\nWening itu proses, bukan tombol.","Prinsip Waktu","7",2,"Menenangkan","Wening"],
+ ["C001","cerita","Ada yang cerita ke aku.\nTiap hari kirim chat panjang, minta maaf berkali-kali.\nSampai dia capek sendiri.\nTerus dia berhenti. Bukan nyerah, tapi mulai fokus balikin dirinya sendiri.\nTiga minggu kemudian, yang dia tunggu justru yang duluan chat.","Orang Lain","8",5,"Menguatkan",""],
+ ["PI001","patterninterrupt","Ini bukan soal cinta yang kuat. Ini pola yang kamu ulang tanpa sadar.","","10",8,"Menegur",""],
+ ["D001","dampak","Kalau pola ini dibiarkan, bukan cuma hubungan yang capek.\nGravitasi batinmu sendiri yang lama-lama habis buat hal yang sama.","","10",7,"Menegur","Gravitasi Batin"],
+ ["FP001","futurepacing","Bayangin kamu Wening pas liat notifikasi dari dia.\nBukan karena nggak peduli, tapi karena kamu udah Teteg sama diri sendiri.","","7-9",4,"Menenangkan","Wening, Teteg"],
+ ["AS001","actionstep","Mulai dari satu hal kecil: berhenti cek story dia hari ini. Cuma hari ini dulu. Itu udah Ikhtiar Batin.","","8",5,"Menguatkan","Ikhtiar Batin"],
+ ["CL001","closing","Kamu nggak perlu buru-buru sembuh. Wening itu proses, bukan tombol.","Menenangkan","7",2,"Menenangkan","Wening"],
+ ["CTA001","cta","Follow biar nggak ketinggalan lanjutannya.","","Universal",3,"Netral",""],
+ ["CTA002","cta","Simpan ini buat kamu baca ulang pas lagi berat.","","7",2,"Menemani",""],
+];
+
+const SPECS = [
+ ["hook","1-2 kalimat, maks 20 kata","tidak boleh solusi/angka/kata rahasia-ampuh-100%","Rasa Bocor, Diam Ratu, Gravitasi Batin"],
+ ["gejala","2-3 kalimat, satu napas per baris","tidak boleh sebut penyebab/solusi/menghakimi","Rasa Bocor, Wening"],
+ ["masalah","2-4 kalimat","tidak boleh langsung solusi/menyalahkan","Gravitasi Batin, Ikhtiar Batin"],
+ ["miskonsepsi","2-3 kalimat","tidak boleh solusi penuh/meremehkan","Gravitasi Sunyi"],
+ ["akarpenyebab","2-4 kalimat, 1 penyebab inti","tidak boleh solusi penuh/multi-penyebab","Ikhtiar Batin, Gravitasi Batin"],
+ ["penjelasanpsikologi","2-4 kalimat","istilah teknis wajib dijelaskan awam","Wening, Teteg"],
+ ["solusi","2-4 kalimat, berbentuk prinsip","tidak boleh janji instan/template generik","Magnet Hening, Diam Bernyawa, Wening"],
+ ["cerita","4-8 kalimat, ada arc","tidak boleh dipotong teori di tengah","bebas sesuai konteks"],
+ ["patterninterrupt","1 kalimat tegas","tidak boleh panjang/langsung dijelaskan","Gravitasi Sunyi, Diam Ratu"],
+ ["dampak","2-3 kalimat","tidak boleh mengancam berlebihan","Gravitasi Batin"],
+ ["futurepacing","2-3 kalimat konkret","tidak boleh janji tidak realistis","Wening, Teteg"],
+ ["actionstep","1-3 kalimat, 1 langkah","tidak boleh lebih dari 1 langkah/abstrak","Ikhtiar Batin"],
+ ["closing","1-2 kalimat","tidak boleh info baru/klise kosong","Wening, Diam Bernyawa, Magnet Hening"],
+ ["cta","1 kalimat, 1 ajakan","tidak boleh lebih dari 1 ajakan/hard-sell di fase rapuh","opsional"],
+ ["revealkonsep","1-3 kalimat, nama konsep + penjelasan 1 kalimat super sederhana","tidak boleh langsung solusi/terlalu teknis tanpa analogi","bebas sesuai konsep"],
+ ["contohaplikasi","2-4 kalimat, demonstrasi konkret dari konsep","tidak boleh diagnosa pain (itu Gejala) / tidak boleh teori (itu PP)","bebas sesuai konteks"],
+ ["mekanismekerja","2-4 kalimat, jelaskan proses/how bukan why","tidak boleh terlalu abstrak/langsung solusi","Gravitasi Batin, Wening"],
+ ["spiritualanchor","1-3 kalimat, referensi spiritual yang nge-lock belief","tidak boleh ceramah/menggurui/terlalu panjang","Ikhtiar Batin, Wening, Gravitasi Batin"],
+ ["layeringkontradiksi","2-4 label kontradiktif berulang dalam 1-2 kalimat","tidak boleh resolve kontradiksi / tidak boleh linear / harus bikin penonton belum bisa kategorikan","bebas"],
+ ["groundingkonsep","1-2 kalimat, format: tahu kan namanya X, X itu Y","tidak boleh menjelaskan panjang / tidak boleh teori / harus memaksa pengakuan internal","bebas sesuai konsep"],
+ ["pivotstatement","1 kalimat yang tutup bab lama dan buka bab baru","tidak boleh lebih dari 1-2 kalimat / tidak boleh ada penjelasan","bebas"],
+ ["audiencesplit","1-3 kalimat, satu pesan bermakna ganda untuk 2 segment","tidak boleh eksplisit sebut dua segment terpisah / harus terasa satu pesan","bebas"],
+ ["paradoksinti","2-3 kalimat, dua instruksi kontradiktif dijadikan satu","tidak boleh resolve paradoks / harus bikin penonton berhenti mikir 'gimana caranya'","Gravitasi Batin, Magnet Hening, Diam Bernyawa"],
+ ["brandnarasi","1-3 kalimat, nama brand muncul di dalam cerita kasus","tidak boleh terasa iklan / harus muncul sebagai karakter dalam plot","Radit Dewa Tidur"],
+ ["empowermentflip","2-3 kalimat, ubah posisi audience dari objek ke subjek","harus ada momen 'sebelumnya objek' baru di-flip / tidak boleh tanpa kontras","bebas"],
+ ["methodreveal","2-3 kalimat, sebut metode spesifik secara kasual","tidak boleh hard-sell / tidak boleh terlalu teknis / harus terasa natural","Wening, Magnet Hening, Ikhtiar Batin"],
+ ["benefitstacking","2-3 kalimat, tiga hasil dari satu tindakan pakai bahasa audience","tidak boleh pakai istilah guru / harus mirror language (bucin, galau, baper)","bebas"],
+ ["consequenceline","1 kalimat, fakta tentang konsekuensi setelah permission total","tidak boleh ceramah / tidak boleh lebih dari 1 kalimat / harus netral bukan menakuti","bebas"],
+ ["brandkontras","2-3 kalimat, positioning brand lewat konsekuensi positif vs jalan lain","tidak boleh serang kompetitor / harus kontras bukan serangan","Radit Dewa Tidur, Wening, Magnet Hening"],
+ ["realitycheck","1 kalimat, tarik penonton dari konsep ke kondisi sekarang","tidak boleh lebih dari 1 kalimat / harus jadi jembatan ke CTA","bebas"],
+ ["permissiontotal","1-3 kalimat, akui semua cara termasuk gelap tanpa judge","tidak boleh melarang / tidak boleh merekomendasikan cara gelap / harus netral","bebas"],
+];
+
+function migrateSchema(){
+  // Bikin tabel script_log kalau database yang dimuat belum punya (upload lama, dsb)
+  try{
+    db.run(`CREATE TABLE IF NOT EXISTS script_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, fase_key TEXT, signature TEXT,
+      script_text TEXT, created_at TEXT
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS custom_flows (
+      fase_key TEXT PRIMARY KEY, fase_label TEXT NOT NULL,
+      level_emosi_min INTEGER NOT NULL, level_emosi_max INTEGER NOT NULL,
+      urutan_json TEXT NOT NULL, created_at TEXT
+    )`);
+  }catch(e){ console.error('Migrasi gagal', e); }
+}
+
+async function initEngine(){
+  const modeEl = document.getElementById('storage-mode');
+  if(modeEl){
+    modeEl.textContent = hasClaudeStorage()
+      ? 'Penyimpanan: otomatis tersinkron di Claude'
+      : 'Penyimpanan: lokal di browser ini (mode mandiri)';
+  }
+  SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+  document.getElementById('setup-loading').style.display = 'none';
+
+  const saved = await tryLoadFromStorage();
+  if(saved){
+    db = saved;
+    migrateSchema();
+    showApp();
+    return;
+  }
+  document.getElementById('setup-ready').style.display = 'block';
+}
+
+async function tryLoadFromStorage(){
+  try{
+    const value = await storageAdapter.get('sqlite_db_b64');
+    if(!value) return null;
+    const bytes = base64ToBytes(value);
+    return new SQL.Database(bytes);
+  }catch(e){ return null; }
+}
+
+async function persist(){
+  if(!db) return;
+  const bytes = db.export();
+  const b64 = bytesToBase64(bytes);
+  await storageAdapter.set('sqlite_db_b64', b64);
+}
+
+function bytesToBase64(bytes){
+  let binary = '';
+  const chunk = 8192;
+  for(let i=0;i<bytes.length;i+=chunk){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+  }
+  return btoa(binary);
+}
+function base64ToBytes(b64){
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function createEmptyDb(withSeed){
+  db = new SQL.Database();
+  db.run(SCHEMA_SQL);
+  insertFlowsSchema();
+  SPECS.forEach(s => db.run("INSERT INTO block_spec VALUES (?,?,?,?)", s));
+  if(withSeed){
+    SEED_BLOCKS.forEach(row => {
+      db.run(`INSERT INTO blocks (id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai)
+              VALUES (?,?,?,?,?,?,?,?,?,0)`, row);
+    });
+  }
+  persist();
+  showApp();
+}
+
+document.getElementById('btn-new-empty').onclick = () => createEmptyDb(false);
+document.getElementById('btn-new-seed').onclick = () => createEmptyDb(true);
+document.getElementById('file-input').onchange = async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const buf = await file.arrayBuffer();
+  db = new SQL.Database(new Uint8Array(buf));
+  migrateSchema();
+  persist();
+  showApp();
+};
+
+function showApp(){
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  renderTab('db');
+}
+
+function q(sql, params){
+  const res = db.exec(sql, params||[]);
+  if(res.length===0) return [];
+  const cols = res[0].columns;
+  return res[0].values.map(row => {
+    const obj = {};
+    cols.forEach((c,i)=> obj[c]=row[i]);
+    return obj;
+  });
+}
+
+function run(sql, params){
+  db.run(sql, params||[]);
+  persist();
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => renderTab(t.dataset.tab);
+});
+
+function renderTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===tab));
+  document.querySelectorAll('.panel').forEach(p => p.style.display='none');
+  document.getElementById('panel-'+tab).style.display = 'block';
+  if(tab==='db') renderDb();
+  if(tab==='rakit') renderRakit();
+  if(tab==='qc') renderQc();
+  if(tab==='riwayat') renderRiwayat();
+  if(tab==='file') renderFile();
+}
+
+function getFlowDef(key){
+  if(FLOWS_DEF[key]) return FLOWS_DEF[key];
+  const rows = q("SELECT * FROM custom_flows WHERE fase_key=?", [key]);
+  if(rows.length){
+    const r = rows[0];
+    return [r.fase_label, r.level_emosi_min, r.level_emosi_max, JSON.parse(r.urutan_json)];
+  }
+  return null;
+}
+
+function getCustomFlows(){
+  return q("SELECT * FROM custom_flows ORDER BY created_at");
+}
+
+let manualFlowBuilder = null;
+
+function syncBuilderInputs(){
+  if(!manualFlowBuilder) return;
+  const l = document.getElementById('flow-label-input');
+  const lo = document.getElementById('flow-lo-input');
+  const hi = document.getElementById('flow-hi-input');
+  if(l) manualFlowBuilder.label = l.value;
+  if(lo) manualFlowBuilder.lo = parseInt(lo.value,10) || manualFlowBuilder.lo;
+  if(hi) manualFlowBuilder.hi = parseInt(hi.value,10) || manualFlowBuilder.hi;
+}
+
+function flowBuilderAddBlock(key){
+  syncBuilderInputs();
+  manualFlowBuilder.seq.push(key);
+  renderRakit();
+}
+
+function flowBuilderRemoveBlock(idx){
+  syncBuilderInputs();
+  manualFlowBuilder.seq.splice(idx,1);
+  renderRakit();
+}
+
+function flowBuilderMove(idx, dir){
+  syncBuilderInputs();
+  const newIdx = idx+dir;
+  if(newIdx<0 || newIdx>=manualFlowBuilder.seq.length) return;
+  const tmp = manualFlowBuilder.seq[idx];
+  manualFlowBuilder.seq[idx] = manualFlowBuilder.seq[newIdx];
+  manualFlowBuilder.seq[newIdx] = tmp;
+  renderRakit();
+}
+
+function saveFlowBuilder(){
+  syncBuilderInputs();
+  const label = (manualFlowBuilder.label || '').trim();
+  if(!label){ alert('Isi nama fase dulu ya.'); return; }
+  if(manualFlowBuilder.seq.length === 0){ alert('Tambahkan minimal 1 blok ke urutan fase.'); return; }
+  let lo = manualFlowBuilder.lo, hi = manualFlowBuilder.hi;
+  if(lo > hi){ const t=lo; lo=hi; hi=t; }
+  const slug = 'custom_' + label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40) + '_' + Date.now().toString(36);
+  run("INSERT INTO custom_flows (fase_key, fase_label, level_emosi_min, level_emosi_max, urutan_json, created_at) VALUES (?,?,?,?,?,?)",
+    [slug, label, lo, hi, JSON.stringify(manualFlowBuilder.seq), new Date().toISOString()]);
+  currentFase = slug;
+  lastAssembled = null;
+  manualFlowBuilder = null;
+  renderRakit();
+}
+
+function deleteCustomFlow(key){
+  if(!confirm('Hapus fase manual ini? Blok yang sudah ditulis di database tidak ikut terhapus.')) return;
+  run("DELETE FROM custom_flows WHERE fase_key=?", [key]);
+  if(currentFase === key){
+    currentFase = Object.keys(FLOWS_DEF)[0];
+    lastAssembled = null;
+  }
+  renderRakit();
+}
+
+function nextId(blokKey){
+  const prefix = BLOKS.find(b=>b.key===blokKey).prefix;
+  const rows = q("SELECT COUNT(*) as c FROM blocks WHERE blok=?", [blokKey]);
+  const n = (rows[0].c || 0) + 1;
+  return prefix + String(n).padStart(3,'0');
+}
+
+const DB_SORT_COLS = { id:'id', teks:'teks', subtipe:'subtipe', fase:'fase_cocok', emosi:'level_emosi', brand:'kosakata_brand', dipakai:'sudah_dipakai' };
+
+function thSort(label, key){
+  const arrow = dbSortCol === key ? (dbSortDir === 'asc' ? ' \u25B2' : ' \u25BC') : '';
+  return `<th data-sortkey="${key}" style="cursor:pointer; user-select:none;">${label}${arrow}</th>`;
+}
+
+function renderDb(){
+  const panel = document.getElementById('panel-db');
+  const counts = BLOKS.map(b => {
+    const r = q("SELECT COUNT(*) as c FROM blocks WHERE blok=?", [b.key]);
+    return {label:b.label, c:r[0].c};
+  });
+
+  const whereClauses = ['blok=?'];
+  const params = [selectedBlok];
+  if(dbFilterFase.trim()){ whereClauses.push('fase_cocok=?'); params.push(dbFilterFase.trim()); }
+  if(dbFilterEmosiMin !== ''){ whereClauses.push('level_emosi >= ?'); params.push(Number(dbFilterEmosiMin)); }
+  if(dbFilterEmosiMax !== ''){ whereClauses.push('level_emosi <= ?'); params.push(Number(dbFilterEmosiMax)); }
+  if(dbFilterMultiline){ whereClauses.push("teks LIKE '%' || CHAR(10) || '%'"); }
+  const sortColSql = DB_SORT_COLS[dbSortCol] || 'id';
+  const dirSql = dbSortDir === 'desc' ? 'DESC' : 'ASC';
+  const entries = q(`SELECT * FROM blocks WHERE ${whereClauses.join(' AND ')} ORDER BY ${sortColSql} ${dirSql}, id ASC`, params);
+  const faseOptions = q("SELECT DISTINCT fase_cocok FROM blocks WHERE blok=? ORDER BY fase_cocok", [selectedBlok]).map(r=>r.fase_cocok);
+  const blokLabel = BLOKS.find(b=>b.key===selectedBlok).label;
+
+  panel.innerHTML = `
+    <div class="card"><div class="stat-grid">
+      ${counts.map(c=>`<div class="stat"><div class="num">${c.c}</div><div class="lb">${c.label}</div></div>`).join('')}
+    </div></div>
+    <div class="card">
+      <label>Pilih blok</label>
+      <select id="sel-blok">${BLOKS.map(b=>`<option value="${b.key}" ${b.key===selectedBlok?'selected':''}>${b.label}</option>`).join('')}</select>
+      <h3 style="margin-top:18px; font-size:14px;">Tambah satu entri</h3>
+      <label>Teks</label>
+      <textarea id="f-teks" placeholder="Tulis isi blok di sini..."></textarea>
+      <div class="row">
+        <div><label>Subtipe</label><input type="text" id="f-subtipe" placeholder="mis. Curiosity"></div>
+        <div><label>Fase cocok</label><input type="text" id="f-fase" placeholder="6 / 7 / Universal" value="Universal"></div>
+      </div>
+      <div class="row">
+        <div><label>Level emosi (1-10)</label><input type="number" id="f-level" min="1" max="10" value="5"></div>
+        <div><label>Nada</label><input type="text" id="f-nada" placeholder="Menenangkan"></div>
+      </div>
+      <label>Kosakata brand (opsional)</label>
+      <input type="text" id="f-brand" placeholder="Wening, Gravitasi Batin">
+      <button id="btn-add">Tambah ke database</button>
+
+      <h3 style="margin-top:22px; font-size:14px;">Impor banyak sekaligus (teks)</h3>
+      <textarea id="f-bulk" style="min-height:100px;" placeholder="Teks|Subtipe|FaseCocok|LevelEmosi|Nada|Brand"></textarea>
+      <div class="hint">Satu baris = satu entri, kolom dipisah tanda |. Semua masuk ke blok yang lagi dipilih di atas.</div>
+      <button id="btn-bulk" class="secondary">Impor semua baris</button>
+
+      <h3 style="margin-top:22px; font-size:14px;">Impor dari file CSV / Excel</h3>
+      <div class="hint" style="margin-bottom:8px;">File harus punya kolom: blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan. Kolom blok, teks wajib diisi, sisanya opsional. Kolom id dan sudah_dipakai juga dibaca kalau ada (dipakai buat update entri lama tanpa reset hitungan pemakaian); kalau id dikosongkan, ID dibuat otomatis.</div>
+      <input type="file" id="file-import-csv" accept=".csv,.xlsx,.xls">
+      <div id="import-status" style="margin-top:8px; font-size:12px;"></div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:14px; margin:0 0 10px;">Isi database: ${blokLabel}</h3>
+      <div class="row" style="align-items:flex-end;">
+        <div>
+          <label>Filter fase</label>
+          <select id="db-filter-fase">
+            <option value="">Semua fase</option>
+            ${faseOptions.map(f=>`<option value="${escapeHtml(f)}" ${f===dbFilterFase?'selected':''}>${escapeHtml(f)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label>Emosi min</label>
+          <input type="number" id="db-filter-emin" min="1" max="10" placeholder="1" value="${dbFilterEmosiMin}">
+        </div>
+        <div>
+          <label>Emosi max</label>
+          <input type="number" id="db-filter-emax" min="1" max="10" placeholder="10" value="${dbFilterEmosiMax}">
+        </div>
+        <div>
+          <button id="db-filter-reset" type="button" class="secondary" style="margin-top:12px;">Reset filter &amp; sortir</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; margin-top:12px;">
+          <input type="checkbox" id="db-filter-multiline" ${dbFilterMultiline?'checked':''}>
+          <label for="db-filter-multiline" style="margin:0; cursor:pointer; font-size:12px;">Multi-line saja</label>
+        </div>
+      </div>
+      <div class="hint" style="margin:6px 0 4px;">Klik judul kolom (Fase, Emosi, Dipakai, dst) buat sortir naik/turun. Centang baris buat pilih data yang mau diekspor.</div>
+      <div class="row" style="align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+        <span style="font-size:12px; color:var(--text-dim);">${dbSelectedIds.size} baris dipilih (dari semua blok)</span>
+        <button id="db-export-selected" type="button" class="secondary" ${dbSelectedIds.size===0?'disabled':''}>Ekspor terpilih (.xlsx)</button>
+        <button id="db-clear-selected" type="button" class="secondary" ${dbSelectedIds.size===0?'disabled':''}>Kosongkan pilihan</button>
+      </div>
+      <div class="row" style="align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:8px;">
+        <input type="file" id="file-import-table" accept=".csv,.xlsx,.xls" style="max-width:280px;">
+        <span id="import-table-status" style="font-size:12px;"></span>
+      </div>
+      <div class="hint" style="margin:0 0 10px;">Format kolom import sama persis dengan hasil ekspor (id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai) — jadi file yang diekspor dari sini bisa langsung diedit lalu diimpor balik ke sini. Baris dengan ID yang sudah ada akan meng-update entri itu, ID kosong jadi entri baru, dan setiap baris masuk ke jenis blok sesuai isi kolom "blok".</div>
+      ${entries.length===0 ? '<div class="empty">Tidak ada data yang cocok.</div>' : `
+      <table><thead><tr><th style="width:28px;"><input type="checkbox" id="db-select-all" ${entries.length>0 && entries.every(e=>dbSelectedIds.has(e.id))?'checked':''}></th>${thSort('ID','id')}${thSort('Teks','teks')}${thSort('Label / subtipe','subtipe')}${thSort('Fase','fase')}${thSort('Emosi','emosi')}${thSort('Brand','brand')}${thSort('Dipakai','dipakai')}<th></th></tr></thead>
+      <tbody>${entries.map(e=>`<tr>
+        <td><input type="checkbox" class="db-row-check" data-id="${e.id}" ${dbSelectedIds.has(e.id)?'checked':''}></td>
+        <td><span class="badge">${e.id}</span></td>
+        <td>${escapeHtml(e.teks).replace(/\n/g,'<br>')}</td>
+        <td>${e.subtipe ? `<span class="badge" style="border-color:var(--gold-dim); color:var(--gold);">${escapeHtml(e.subtipe)}</span>` : '<span style="color:var(--text-faint);">—</span>'}</td>
+        <td>${e.fase_cocok}</td><td>${e.level_emosi}</td>
+        <td>${e.kosakata_brand ? escapeHtml(e.kosakata_brand) : '<span style="color:var(--text-faint);">—</span>'}</td>
+        <td>${e.sudah_dipakai}</td>
+        <td><button class="small secondary" data-copy="${e.id}">Copy</button> <button class="small secondary" data-del="${e.id}">Hapus</button></td>
+      </tr>`).join('')}</tbody></table>`}
+    </div>
+  `;
+
+  document.getElementById('sel-blok').onchange = (e) => {
+    selectedBlok = e.target.value;
+    dbFilterFase = ''; dbFilterEmosiMin = ''; dbFilterEmosiMax = ''; dbFilterMultiline = false;
+    renderDb();
+  };
+  document.getElementById('db-filter-fase').onchange = (e) => { dbFilterFase = e.target.value; renderDb(); };
+  document.getElementById('db-filter-emin').onchange = (e) => { dbFilterEmosiMin = e.target.value; renderDb(); };
+  document.getElementById('db-filter-emax').onchange = (e) => { dbFilterEmosiMax = e.target.value; renderDb(); };
+  document.getElementById('db-filter-multiline').onchange = (e) => { dbFilterMultiline = e.target.checked; renderDb(); };
+  document.getElementById('db-filter-reset').onclick = () => {
+    dbFilterFase=''; dbFilterEmosiMin=''; dbFilterEmosiMax=''; dbFilterMultiline=false; dbSortCol='id'; dbSortDir='asc';
+    renderDb();
+  };
+  document.querySelectorAll('[data-sortkey]').forEach(th => {
+    th.onclick = () => {
+      const key = th.dataset.sortkey;
+      if(dbSortCol === key){ dbSortDir = dbSortDir === 'asc' ? 'desc' : 'asc'; }
+      else { dbSortCol = key; dbSortDir = 'asc'; }
+      renderDb();
+    };
+  });
+  const selectAllBox = document.getElementById('db-select-all');
+  if(selectAllBox){
+    selectAllBox.onchange = () => {
+      if(selectAllBox.checked){
+        entries.forEach(e => dbSelectedIds.add(e.id));
+      } else {
+        entries.forEach(e => dbSelectedIds.delete(e.id));
+      }
+      renderDb();
+    };
+  }
+  document.querySelectorAll('.db-row-check').forEach(cb => {
+    cb.onchange = () => {
+      const id = parseInt(cb.dataset.id, 10);
+      if(cb.checked) dbSelectedIds.add(id); else dbSelectedIds.delete(id);
+      renderDb();
+    };
+  });
+  const clearBtn = document.getElementById('db-clear-selected');
+  if(clearBtn) clearBtn.onclick = () => { dbSelectedIds.clear(); renderDb(); };
+  const exportBtn = document.getElementById('db-export-selected');
+  if(exportBtn) exportBtn.onclick = () => {
+    if(dbSelectedIds.size === 0) return;
+    const ids = Array.from(dbSelectedIds);
+    const placeholders = ids.map(()=>'?').join(',');
+    const rows = q(`SELECT id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai FROM blocks WHERE id IN (${placeholders}) ORDER BY blok, id`, ids);
+    const cols = ["id","blok","teks","subtipe","fase_cocok","level_emosi","nada","kosakata_brand","cocok_dipasang_dengan","sudah_dipakai"];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows, { header: cols });
+    ws['!cols'] = [{wch:10},{wch:14},{wch:55},{wch:20},{wch:12},{wch:10},{wch:14},{wch:20},{wch:20},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, "Data Terpilih");
+    XLSX.writeFile(wb, 'script_assembler_export_terpilih.xlsx');
+  };
+  document.getElementById('btn-add').onclick = () => {
+    const teks = document.getElementById('f-teks').value.trim();
+    if(!teks) return;
+    const id = nextId(selectedBlok);
+    run(`INSERT INTO blocks (id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai)
+         VALUES (?,?,?,?,?,?,?,?,'',0)`,
+      [id, selectedBlok, teks,
+       document.getElementById('f-subtipe').value.trim(),
+       document.getElementById('f-fase').value.trim()||'Universal',
+       Number(document.getElementById('f-level').value)||5,
+       document.getElementById('f-nada').value.trim(),
+       document.getElementById('f-brand').value.trim()]);
+    renderDb();
+  };
+  document.getElementById('btn-bulk').onclick = () => {
+    const text = document.getElementById('f-bulk').value.trim();
+    if(!text) return;
+    const lines = text.split('\n').filter(l=>l.trim());
+    lines.forEach(line => {
+      const parts = line.split('|').map(p=>p.trim());
+      const id = nextId(selectedBlok);
+      run(`INSERT INTO blocks (id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai)
+           VALUES (?,?,?,?,?,?,?,?,'',0)`,
+        [id, selectedBlok, parts[0]||'', parts[1]||'', parts[2]||'Universal', Number(parts[3])||5, parts[4]||'', parts[5]||'']);
+    });
+    renderDb();
+  };
+
+const VALID_BLOK_KEYS = BLOKS.map(b => b.key);
+
+function importBlocksFromFile(file, statusEl, afterImport){
+  if(!file) return;
+  statusEl.textContent = 'Membaca file...';
+  statusEl.style.color = 'var(--text-dim)';
+
+  const processRows = (rows) => {
+    let created = 0, updated = 0, skipped = 0, skipReasons = [];
+    rows.forEach((row, i) => {
+      const blok = String(row.blok || row.Blok || '').trim().toLowerCase();
+      const teks = String(row.teks || row.Teks || '').trim();
+      if(!blok || !teks){
+        skipped++; skipReasons.push(`Baris ${i+2}: blok atau teks kosong`);
+        return;
+      }
+      if(!VALID_BLOK_KEYS.includes(blok)){
+        skipped++; skipReasons.push(`Baris ${i+2}: blok "${blok}" tidak dikenal`);
+        return;
+      }
+      const subtipe = String(row.subtipe || row.Subtipe || '').trim();
+      const fase = String(row.fase_cocok || row.Fase_cocok || row.fase || 'Universal').trim() || 'Universal';
+      const level = Number(row.level_emosi || row.Level_emosi || 5) || 5;
+      const nada = String(row.nada || row.Nada || '').trim();
+      const brand = String(row.kosakata_brand || row.Kosakata_brand || '').trim();
+      const cocok = String(row.cocok_dipasang_dengan || row.Cocok_dipasang_dengan || '').trim();
+      const givenId = String(row.id || row.ID || '').trim();
+      const usedRaw = row.sudah_dipakai !== undefined ? row.sudah_dipakai : row.Sudah_dipakai;
+      const hasUsedCol = usedRaw !== undefined && String(usedRaw).trim() !== '';
+      const usedVal = Number(usedRaw) || 0;
+
+      if(givenId){
+        const existing = q("SELECT id, sudah_dipakai FROM blocks WHERE id=?", [givenId]);
+        if(existing.length > 0){
+          // ID sudah ada -> update entri itu. sudah_dipakai ikut dari file kalau kolomnya diisi,
+          // kalau kosong dibiarkan sesuai nilai yang sudah ada di database (nggak ke-reset).
+          const keepUsed = hasUsedCol ? usedVal : existing[0].sudah_dipakai;
+          run(`UPDATE blocks SET blok=?, teks=?, subtipe=?, fase_cocok=?, level_emosi=?, nada=?, kosakata_brand=?, cocok_dipasang_dengan=?, sudah_dipakai=? WHERE id=?`,
+            [blok, teks, subtipe, fase, level, nada, brand, cocok, keepUsed, givenId]);
+          updated++;
+          return;
+        }
+        // ID diisi tapi belum ada di database -> buat baru dengan ID itu
+        run(`INSERT INTO blocks (id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai)
+             VALUES (?,?,?,?,?,?,?,?,?,?)`,
+          [givenId, blok, teks, subtipe, fase, level, nada, brand, cocok, hasUsedCol ? usedVal : 0]);
+        created++;
+        return;
+      }
+      // ID kosong -> entri baru, ID dibuat otomatis
+      const newId = nextId(blok);
+      run(`INSERT INTO blocks (id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai)
+           VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        [newId, blok, teks, subtipe, fase, level, nada, brand, cocok, hasUsedCol ? usedVal : 0]);
+      created++;
+    });
+    statusEl.style.color = skipped > 0 ? 'var(--danger)' : 'var(--ok)';
+    statusEl.innerHTML = `${created} entri baru, ${updated} entri diupdate.` +
+      (skipped > 0 ? `<br>${skipped} baris dilewati:<br>` + skipReasons.slice(0,10).map(escapeHtml).join('<br>') + (skipReasons.length>10 ? `<br>...dan ${skipReasons.length-10} lainnya` : '') : '');
+    if(afterImport) afterImport();
+  };
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  if(ext === 'csv'){
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true,
+      complete: (results) => processRows(results.data),
+      error: (err) => { statusEl.textContent = 'Gagal membaca CSV: ' + err.message; statusEl.style.color='var(--danger)'; }
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try{
+        const wb = XLSX.read(evt.target.result, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        processRows(rows);
+      }catch(err){
+        statusEl.textContent = 'Gagal membaca Excel: ' + err.message;
+        statusEl.style.color = 'var(--danger)';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+  document.getElementById('file-import-csv').onchange = (e) => {
+    importBlocksFromFile(e.target.files[0], document.getElementById('import-status'), renderDb);
+  };
+  const importTableInput = document.getElementById('file-import-table');
+  if(importTableInput){
+    importTableInput.onchange = (e) => {
+      importBlocksFromFile(e.target.files[0], document.getElementById('import-table-status'), renderDb);
+    };
+  }
+  panel.querySelectorAll('[data-del]').forEach(btn => {
+    btn.onclick = () => {
+      const delId = parseInt(btn.dataset.del, 10);
+      run("DELETE FROM blocks WHERE id=?", [btn.dataset.del]);
+      dbSelectedIds.delete(delId);
+      renderDb();
+    };
+  });
+  panel.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.onclick = async () => {
+      const row = q("SELECT teks FROM blocks WHERE id=?", [btn.dataset.copy]);
+      if(row.length===0) return;
+      try{
+        await navigator.clipboard.writeText(row[0].teks);
+      }catch(e){
+        const ta = document.createElement('textarea');
+        ta.value = row[0].teks; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try{ document.execCommand('copy'); }catch(e2){}
+        document.body.removeChild(ta);
+      }
+      const original = btn.textContent;
+      btn.textContent = 'Tersalin';
+      setTimeout(()=>{ btn.textContent = original; }, 1500);
+    };
+  });
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function ensureEmosiOverride(seq, lo, hi){
+  if(rakitEmosiOverrideFase !== currentFase || rakitEmosiOverride.length !== seq.length){
+    rakitEmosiOverride = seq.map(() => ({lo, hi: 10}));
+    rakitSubtipeOverride = seq.map(() => '');
+    rakitEmosiOverrideFase = currentFase;
+  }
+  if(rakitSubtipeOverride.length !== seq.length){
+    rakitSubtipeOverride = seq.map(() => '');
+  }
+}
+
+function getSubtipesForBlok(blokKey){
+  const rows = q("SELECT DISTINCT subtipe FROM blocks WHERE blok=? AND subtipe IS NOT NULL AND subtipe != '' ORDER BY subtipe", [blokKey]);
+  return rows.map(r => r.subtipe);
+}
+
+function renderRakit(){
+  const panel = document.getElementById('panel-rakit');
+  const customRows = getCustomFlows();
+  if(!getFlowDef(currentFase)){
+    currentFase = Object.keys(FLOWS_DEF)[0];
+  }
+  const [label, lo, hi, seq] = getFlowDef(currentFase);
+  const isCustomCurrent = customRows.some(r => r.fase_key === currentFase);
+  ensureEmosiOverride(seq, lo, hi);
+
+  const builderHtml = manualFlowBuilder ? `
+    <div class="card" style="border:1px dashed var(--gold-dim);">
+      <h3 style="margin:0 0 10px; font-size:15px; color:var(--gold);">Buat Fase Manual</h3>
+      <label>Nama fase</label>
+      <input id="flow-label-input" type="text" placeholder="mis. Hook-Cerita-Solusi-Zeno" value="${escapeHtml(manualFlowBuilder.label)}" />
+      <div class="row">
+        <div>
+          <label>Level emosi min</label>
+          <input id="flow-lo-input" type="number" min="1" max="10" value="${manualFlowBuilder.lo}" />
+        </div>
+        <div>
+          <label>Level emosi max</label>
+          <input id="flow-hi-input" type="number" min="1" max="10" value="${manualFlowBuilder.hi}" />
+        </div>
+      </div>
+      <label>Tambah blok ke urutan (klik, urutan klik = urutan blok)</label>
+      <div class="block-seq">
+        ${BLOKS.filter(b=>b.key!=='manual').map(b=>`<button type="button" class="block-chip-btn" data-addblok="${b.key}">+ ${b.label}</button>`).join('')}
+      </div>
+      <label>Urutan fase saat ini</label>
+      <div class="block-seq">
+        ${manualFlowBuilder.seq.length===0 ? '<span class="empty" style="padding:6px 0;">Belum ada blok — klik salah satu tombol di atas</span>' :
+          manualFlowBuilder.seq.map((s,i)=>`
+            <span class="block-chip">
+              ${i+1}. ${BLOKS.find(b=>b.key===s).label}
+              <button type="button" class="mini-btn" data-moveup="${i}" ${i===0?'disabled':''}>↑</button>
+              <button type="button" class="mini-btn" data-movedown="${i}" ${i===manualFlowBuilder.seq.length-1?'disabled':''}>↓</button>
+              <button type="button" class="mini-btn" data-removeblok="${i}">×</button>
+            </span>
+          `).join('')}
+      </div>
+      <button id="btn-save-flow">Simpan fase manual</button>
+      <button id="btn-cancel-flow" class="secondary">Batal</button>
+    </div>
+  ` : '';
+
+  panel.innerHTML = `
+    <div class="card">
+      <label>Pilih Fase</label>
+      <select id="sel-fase">
+        <optgroup label="Fase Bawaan">
+          ${Object.keys(FLOWS_DEF).map(k=>`<option value="${k}" ${k===currentFase?'selected':''}>${FLOWS_DEF[k][0]}</option>`).join('')}
+        </optgroup>
+        ${customRows.length ? `<optgroup label="Fase Manual">
+          ${customRows.map(r=>`<option value="${r.fase_key}" ${r.fase_key===currentFase?'selected':''}>${escapeHtml(r.fase_label)}</option>`).join('')}
+        </optgroup>` : ''}
+      </select>
+      <div class="hint" style="margin:8px 0 2px;">Atur level emosi dan label (subtipe) tiap blok sebelum dirakit.</div>
+      <div class="emosi-seq">
+        ${seq.map((s,idx)=>{
+          const ov = rakitEmosiOverride[idx] || {lo, hi};
+          const subtipes = getSubtipesForBlok(s);
+          const curSub = rakitSubtipeOverride[idx] || '';
+          return `<div class="emosi-row">
+            <span class="pos-label">${idx+1}. ${BLOKS.find(b=>b.key===s).label}</span>
+            ${subtipes.length > 0 ? `<select class="subtipe-sel" data-sub-idx="${idx}" style="font-size:12px; padding:3px 5px; max-width:130px;">
+              <option value="">Semua label</option>
+              ${subtipes.map(st=>`<option value="${st}" ${st===curSub?'selected':''}>${st}</option>`).join('')}
+            </select>` : ''}
+            <span class="emosi-lbl">Min</span>
+            <input type="number" class="emosi-input emosi-lo" data-emosi-idx="${idx}" min="1" max="10" value="${ov.lo}">
+            <span class="emosi-lbl">Max</span>
+            <input type="number" class="emosi-input emosi-hi" data-emosi-idx="${idx}" min="1" max="10" value="${ov.hi}">
+          </div>`;
+        }).join('')}
+      </div>
+      <button id="btn-reset-emosi" type="button" class="secondary" style="margin-bottom:10px;">Reset emosi & label ke default</button>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+        <input type="checkbox" id="rakit-multiline-only" ${rakitMultilineOnly?'checked':''}>
+        <label for="rakit-multiline-only" style="margin:0; cursor:pointer; font-size:13px;">Multi-line saja</label>
+      </div>
+      <button id="btn-rakit">Rakit script</button>
+      ${lastAssembled ? '<button id="btn-rakit-ulang" class="secondary">Rakit ulang</button>' : ''}
+      <button id="btn-buat-fase" class="secondary">${manualFlowBuilder ? 'Tutup builder' : '+ Buat Fase Manual'}</button>
+      ${isCustomCurrent ? '<button id="btn-hapus-fase" class="secondary" style="color:var(--danger); border-color:var(--danger);">Hapus fase ini</button>' : ''}
+    </div>
+    ${builderHtml}
+    <div id="hasil-rakit"></div>
+  `;
+  document.getElementById('sel-fase').onchange = (e) => { currentFase = e.target.value; lastAssembled=null; renderRakit(); };
+  document.getElementById('btn-rakit').onclick = doRakit;
+  const rml = document.getElementById('rakit-multiline-only');
+  if(rml) rml.onchange = (e) => { rakitMultilineOnly = e.target.checked; };
+  const ru = document.getElementById('btn-rakit-ulang');
+  if(ru) ru.onclick = doRakit;
+  document.getElementById('btn-buat-fase').onclick = () => {
+    manualFlowBuilder = manualFlowBuilder ? null : { label:'', lo:3, hi:7, seq:[] };
+    renderRakit();
+  };
+  const hapusBtn = document.getElementById('btn-hapus-fase');
+  if(hapusBtn) hapusBtn.onclick = () => deleteCustomFlow(currentFase);
+  document.getElementById('btn-reset-emosi').onclick = () => {
+    rakitEmosiOverride = seq.map(() => ({lo, hi: 10}));
+    rakitSubtipeOverride = seq.map(() => '');
+    renderRakit();
+  };
+  document.querySelectorAll('.subtipe-sel').forEach(sel => {
+    sel.onchange = () => {
+      const idx = parseInt(sel.dataset.subIdx, 10);
+      rakitSubtipeOverride[idx] = sel.value;
+    };
+  });
+  document.querySelectorAll('.emosi-input').forEach(inp => {
+    inp.onchange = () => {
+      const idx = parseInt(inp.dataset.emosiIdx, 10);
+      let val = Math.max(1, Math.min(10, parseInt(inp.value, 10) || 1));
+      inp.value = val;
+      if(!rakitEmosiOverride[idx]) rakitEmosiOverride[idx] = {lo, hi: 10};
+      const isLo = inp.classList.contains('emosi-lo');
+      if(isLo){
+        rakitEmosiOverride[idx].lo = val;
+        // kalau min > max, naikkan max otomatis ke 10
+        if(val > rakitEmosiOverride[idx].hi){
+          rakitEmosiOverride[idx].hi = 10;
+          const hiInp = document.querySelector(`.emosi-hi[data-emosi-idx="${idx}"]`);
+          if(hiInp) hiInp.value = 10;
+        }
+      } else {
+        rakitEmosiOverride[idx].hi = val;
+        // kalau max < min, turunkan min menyesuaikan
+        if(val < rakitEmosiOverride[idx].lo){
+          rakitEmosiOverride[idx].lo = val;
+          const loInp = document.querySelector(`.emosi-lo[data-emosi-idx="${idx}"]`);
+          if(loInp) loInp.value = val;
+        }
+      }
+      // sengaja TIDAK renderRakit() — supaya klik "Rakit script" langsung kena di klik pertama
+    };
+  });
+
+  if(manualFlowBuilder){
+    document.querySelectorAll('[data-addblok]').forEach(btn=>{
+      btn.onclick = () => flowBuilderAddBlock(btn.dataset.addblok);
+    });
+    document.querySelectorAll('[data-removeblok]').forEach(btn=>{
+      btn.onclick = () => flowBuilderRemoveBlock(parseInt(btn.dataset.removeblok,10));
+    });
+    document.querySelectorAll('[data-moveup]').forEach(btn=>{
+      btn.onclick = () => flowBuilderMove(parseInt(btn.dataset.moveup,10), -1);
+    });
+    document.querySelectorAll('[data-movedown]').forEach(btn=>{
+      btn.onclick = () => flowBuilderMove(parseInt(btn.dataset.movedown,10), 1);
+    });
+    document.getElementById('btn-save-flow').onclick = saveFlowBuilder;
+    document.getElementById('btn-cancel-flow').onclick = closeFlowBuilder;
+  }
+
+  if(lastAssembled) showHasilRakit();
+}
+
+function closeFlowBuilder(){
+  manualFlowBuilder = null;
+  renderRakit();
+}
+
+const S_FLOW_FASE_MAP = {
+  "s1_dicariin_duluan": ["S1 — Kamu yang dicariin duluan (Fase 6,7,8)","7","8"],
+  "s2_avoidant_npd": ["S2 — Dia avoidant dia NPD (Fase 10)"],
+  "s3_dingin_bersimpuh": ["S3 — Dingin jadi bersimpuh (Fase 6,7,8)","7","8"],
+  "s4_bersujud_sihir_putih": [],
+  "s5_menang_kehilangan": ["S5 — Dia yang menang jadi kehilangan (Fase 7,8)","8"],
+  "s6_sayang_karena_uang": ["S6 — Sayang cuma kalau ada uangnya (Fase 10)"],
+  "s7_vc_pepet_gebetan": ["S7 — VC pepet gebetan / narasi (Fase 6)"],
+};
+
+function resolveFaseFilter(faseKey){
+  // For S-flows, return mapped fase values for SQL filter
+  const mapped = S_FLOW_FASE_MAP[faseKey];
+  if(mapped && mapped.length > 0){
+    // Build: (fase_cocok='Universal' OR fase_cocok='6' OR fase_cocok='7' OR fase_cocok='8')
+    const parts = ["fase_cocok='Universal'", ...mapped.map(f => `fase_cocok='${f}'`)];
+    return `(${parts.join(' OR ')})`;
+  }
+  if(mapped && mapped.length === 0){
+    // Universal only (S4)
+    return null;
+  }
+  // Non-S builtin flows: use faseKey directly
+  return null;
+}
+
+function pickEntry(blokKey, faseKey, lo, hi, excludeId, subtipeFilter){
+  const isBuiltinFase = !!FLOWS_DEF[faseKey];
+  const sFaseFilter = resolveFaseFilter(faseKey);
+  const mlFilter = rakitMultilineOnly ? " AND teks LIKE '%' || CHAR(10) || '%'" : '';
+  const tryQuery = (loB, hiB, withFaseFilter) => {
+    let sql = `SELECT * FROM blocks WHERE blok=? AND level_emosi BETWEEN ? AND ?${mlFilter}`;
+    const params = [blokKey, loB, hiB];
+    if(subtipeFilter){
+      sql += ` AND subtipe=?`;
+      params.push(subtipeFilter);
+    }
+    if(withFaseFilter){
+      if(sFaseFilter){
+        sql += ` AND ${sFaseFilter}`;
+      } else {
+        sql += ` AND (fase_cocok='Universal' OR fase_cocok=?)`;
+        params.push(faseKey);
+      }
+    }
+    if(excludeId){ sql += ` AND id != ?`; params.push(excludeId); }
+    return q(sql, params);
+  };
+  let rows = [];
+  if(isBuiltinFase) rows = tryQuery(lo, hi, true);
+  if(rows.length===0) rows = tryQuery(lo, hi, false);
+  if(rows.length===0) rows = tryQuery(Math.max(1,lo-1), Math.min(10,hi+1), false);
+  if(rows.length===0) rows = tryQuery(Math.max(1,lo-2), Math.min(10,hi+2), false);
+  if(rows.length===0){
+    let fallbackSql = `SELECT * FROM blocks WHERE blok=?${excludeId?' AND id != ?':''}`;
+    rows = q(fallbackSql, excludeId?[blokKey,excludeId]:[blokKey]);
+  }
+  if(rows.length===0) return null;
+  rows.sort((a,b)=>(a.sudah_dipakai||0)-(b.sudah_dipakai||0));
+  const minUsed = rows[0].sudah_dipakai||0;
+  const lowest = rows.filter(r=>(r.sudah_dipakai||0)===minUsed);
+  return lowest[Math.floor(Math.random()*lowest.length)];
+}
+
+function computeSignature(assembled){
+  return assembled
+    .filter(p => p.entry && p.entry.id)
+    .map(p => p.entry.id)
+    .sort()
+    .join(',');
+}
+
+function checkDuplicateSignature(signature){
+  if(!signature) return null;
+  const rows = q("SELECT id, created_at FROM script_log WHERE signature=? ORDER BY id DESC LIMIT 1", [signature]);
+  return rows.length ? rows[0] : null;
+}
+
+let duplicateWarning = null;
+
+function pickEntryMultiline(blokKey, faseKey, lo, hi, subtipeFilter, minLines){
+  const isBuiltinFase = !!FLOWS_DEF[faseKey];
+  const sFaseFilter = resolveFaseFilter(faseKey);
+  const mlFilter = rakitMultilineOnly ? " AND teks LIKE '%' || CHAR(10) || '%'" : '';
+  const tryQuery = (loB, hiB, withFaseFilter) => {
+    let sql = `SELECT * FROM blocks WHERE blok=? AND level_emosi BETWEEN ? AND ?${mlFilter}`;
+    const params = [blokKey, loB, hiB];
+    if(subtipeFilter){ sql += ` AND subtipe=?`; params.push(subtipeFilter); }
+    if(withFaseFilter){
+      if(sFaseFilter){
+        sql += ` AND ${sFaseFilter}`;
+      } else {
+        sql += ` AND (fase_cocok='Universal' OR fase_cocok=?)`;
+        params.push(faseKey);
+      }
+    }
+    return q(sql, params);
+  };
+  let rows = [];
+  if(isBuiltinFase) rows = tryQuery(lo, hi, true);
+  if(rows.length===0) rows = tryQuery(lo, hi, false);
+  if(rows.length===0) rows = tryQuery(Math.max(1,lo-1), Math.min(10,hi+1), false);
+  if(rows.length===0) rows = tryQuery(Math.max(1,lo-2), Math.min(10,hi+2), false);
+  if(rows.length===0){
+    let fallbackSql = `SELECT * FROM blocks WHERE blok=?`;
+    rows = q(fallbackSql, [blokKey]);
+  }
+  if(rows.length===0) return null;
+  const withEnoughLines = rows.filter(r => {
+    const lineCount = r.teks.split('\n').filter(l => l.trim()).length;
+    return lineCount >= minLines;
+  });
+  const pool = withEnoughLines.length > 0 ? withEnoughLines : rows;
+  pool.sort((a,b)=>(a.sudah_dipakai||0)-(b.sudah_dipakai||0));
+  const minUsed = pool[0].sudah_dipakai||0;
+  const lowest = pool.filter(r=>(r.sudah_dipakai||0)===minUsed);
+  return lowest[Math.floor(Math.random()*lowest.length)];
+}
+
+function doRakit(){
+  const [label, lo, hi, seq] = getFlowDef(currentFase);
+  ensureEmosiOverride(seq, lo, hi);
+  lastAssembled = [];
+  let i = 0;
+  while(i < seq.length){
+    const blokKey = seq[i];
+    const ov = rakitEmosiOverride[i] || {lo, hi};
+    const sub = rakitSubtipeOverride[i] || '';
+
+    if(blokKey === 'manual'){
+      lastAssembled.push({blokKey, entry: { id: null, teks: '', subtipe: '', fase_cocok: currentFase, level_emosi: 5, nada: '', kosakata_brand: '', draft: true }, emosiLo: ov.lo, emosiHi: ov.hi, subtipeFilter: sub});
+      i++;
+      continue;
+    }
+
+    // Count consecutive same-type blocks
+    let runLen = 1;
+    while(i + runLen < seq.length && seq[i + runLen] === blokKey) runLen++;
+
+    if(runLen === 1){
+      // Single block — normal pick
+      lastAssembled.push({blokKey, entry: pickEntry(blokKey, currentFase, ov.lo, ov.hi, null, sub), emosiLo: ov.lo, emosiHi: ov.hi, subtipeFilter: sub});
+      i++;
+    } else {
+      // Consecutive group — pick ONE entry that has >= runLen lines, split by lines
+      const entry = pickEntryMultiline(blokKey, currentFase, ov.lo, ov.hi, sub, runLen);
+      if(entry){
+        const lines = entry.teks.split('\n').filter(l => l.trim());
+        for(let j = 0; j < runLen; j++){
+          const ovJ = rakitEmosiOverride[i+j] || {lo, hi};
+          const subJ = rakitSubtipeOverride[i+j] || '';
+          const txt = j < lines.length ? lines[j] : '';
+          lastAssembled.push({blokKey, entry: {...entry, teks: txt, _groupParent: entry.id, _groupPart: j+1, _groupTotal: runLen}, emosiLo: ovJ.lo, emosiHi: ovJ.hi, subtipeFilter: subJ});
+        }
+      } else {
+        for(let j = 0; j < runLen; j++){
+          const ovJ = rakitEmosiOverride[i+j] || {lo, hi};
+          lastAssembled.push({blokKey, entry: null, emosiLo: ovJ.lo, emosiHi: ovJ.hi, subtipeFilter: ''});
+        }
+      }
+      i += runLen;
+    }
+  }
+  qcChecked = {};
+  manualPickerOpenAt = null;
+  const sig = computeSignature(lastAssembled);
+  const dup = checkDuplicateSignature(sig);
+  duplicateWarning = dup ? dup.created_at : null;
+  renderRakit();
+}
+
+let manualPickerOpenAt = null;
+
+function regenBlock(idx){
+  const p = lastAssembled[idx];
+  if(!p || p.blokKey === 'manual') return;
+  const [, lo, hi] = getFlowDef(currentFase);
+  const emosiLo = p.emosiLo !== undefined ? p.emosiLo : lo;
+  const emosiHi = p.emosiHi !== undefined ? p.emosiHi : hi;
+  const excludeId = p.entry ? p.entry.id : null;
+  const sub = p.subtipeFilter || '';
+  const newEntry = pickEntry(p.blokKey, currentFase, emosiLo, emosiHi, excludeId, sub);
+  if(newEntry){
+    lastAssembled[idx].entry = newEntry;
+    lastAssembled[idx].emosiLo = emosiLo;
+    lastAssembled[idx].emosiHi = emosiHi;
+  }
+  showHasilRakit();
+}
+
+function insertManualBlockBlank(afterIdx){
+  const draft = {
+    blokKey: 'manual',
+    entry: { id: null, teks: '', subtipe: '', fase_cocok: currentFase, level_emosi: 5, nada: '', kosakata_brand: '', draft: true }
+  };
+  lastAssembled.splice(afterIdx + 1, 0, draft);
+  manualPickerOpenAt = null;
+  renderRakit();
+}
+
+function insertManualBlockExisting(afterIdx, existingId){
+  const rows = q("SELECT * FROM blocks WHERE id=?", [existingId]);
+  if(rows.length === 0) return;
+  const row = rows[0];
+  lastAssembled.splice(afterIdx + 1, 0, {
+    blokKey: 'manual',
+    entry: { id: row.id, teks: row.teks, subtipe: row.subtipe, fase_cocok: row.fase_cocok, level_emosi: row.level_emosi, nada: row.nada, kosakata_brand: row.kosakata_brand, draft: false }
+  });
+  manualPickerOpenAt = null;
+  renderRakit();
+}
+
+function manualBlockNumber(idx){
+  let count = 0;
+  for(let i=0; i<=idx; i++){
+    if(lastAssembled[i].blokKey === 'manual') count++;
+  }
+  return count;
+}
+
+function showHasilRakit(){
+  const div = document.getElementById('hasil-rakit');
+  if(!div) return;
+  const [label] = getFlowDef(currentFase);
+
+  const savedManualBlocks = q("SELECT id, teks FROM blocks WHERE blok='manual' ORDER BY id DESC");
+
+  const insertBtn = (idx) => {
+    const isOpen = manualPickerOpenAt === idx;
+    let html = `<div style="margin:4px 0;">
+      <div style="text-align:center;">
+        <button class="small secondary" data-toggle-picker="${idx}"><i class="ti ti-plus" style="margin-right:4px;"></i>Tambah blok manual di sini</button>
+      </div>`;
+    if(isOpen){
+      html += `<div class="card" style="margin-top:6px; padding:12px 14px;">
+        <button class="small" data-insert-blank="${idx}" style="width:100%; margin-bottom:8px;">+ Buat blok manual baru (kosong)</button>
+        ${savedManualBlocks.length === 0
+          ? `<p class="hint" style="margin:0;">Belum ada blok manual tersimpan sebelumnya.</p>`
+          : `<p class="hint" style="margin:0 0 6px;">Atau pakai lagi blok manual yang udah pernah kamu simpan:</p>
+             ${savedManualBlocks.map(m => `
+               <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line);">
+                 <span style="font-size:12px; color:var(--text-dim); flex:1;">${escapeHtml(m.teks.slice(0,70))}${m.teks.length>70?'...':''}</span>
+                 <button class="small secondary" data-insert-existing="${idx}" data-existing-id="${m.id}">Pakai ini</button>
+               </div>`).join('')}`}
+      </div>`;
+    }
+    html += `</div>`;
+    return html;
+  };
+
+  let blocksHtml = insertBtn(-1);
+  blocksHtml += lastAssembled.map((p, idx) => {
+    let blockHtml;
+    if(p.blokKey === 'manual'){
+      if(!p.entry) p.entry = { id: null, teks: '', subtipe: '', fase_cocok: currentFase, level_emosi: 5, nada: '', kosakata_brand: '', draft: true };
+      const manNum = manualBlockNumber(idx);
+      const isDraft = p.entry.draft;
+      blockHtml = `<div class="script-block" style="border-left-color:var(--gold);" data-block-idx="${idx}">
+        <div class="lbl">Blok manual ${manNum}${p.entry.id ? ' · '+p.entry.id : ' (belum disimpan)'}</div>
+        <textarea class="edit-teks" data-idx="${idx}" placeholder="Tulis isi blok manual kamu di sini..." style="min-height:70px; font-family:inherit; font-size:14px; line-height:1.6;">${escapeHtml(p.entry.teks)}</textarea>
+        <div style="margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          ${isDraft
+            ? `<button class="small secondary" data-save-manual-new="${idx}">Simpan ke database</button>`
+            : `<button class="small secondary" data-save-update="${idx}">Update entri ${p.entry.id}</button>`}
+          <button class="small secondary" data-remove-manual="${idx}" style="color:var(--danger);">Hapus blok ini</button>
+          <span class="save-status" data-status="${idx}" style="font-size:11px; color:var(--ok);"></span>
+        </div>
+      </div>`;
+    } else {
+      const b = BLOKS.find(x=>x.key===p.blokKey);
+      if(!p.entry){
+        blockHtml = `<div class="script-block" style="border-left-color:var(--danger);"><div class="lbl">${b.label}</div><div class="txt" style="color:var(--text-faint);">Belum ada data yang cocok — isi database dulu.</div>
+          <div style="margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="font-size:11px; color:var(--text-faint);">Emosi</span>
+            <input type="number" class="regen-lo" data-ridx="${idx}" min="1" max="10" value="${p.emosiLo||1}" style="width:44px; padding:3px 5px; margin:0; font-size:12px;">
+            <span style="font-size:11px; color:var(--text-faint);">–</span>
+            <input type="number" class="regen-hi" data-ridx="${idx}" min="1" max="10" value="${p.emosiHi||10}" style="width:44px; padding:3px 5px; margin:0; font-size:12px;">
+            <button class="small secondary" data-regen="${idx}">↻ Coba generate lagi</button>
+          </div>
+        </div>`;
+      } else {
+        const subtipesForBlock = getSubtipesForBlok(p.blokKey);
+        const curSubFilter = p.subtipeFilter || '';
+        blockHtml = `<div class="script-block" data-block-idx="${idx}">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px; flex-wrap:wrap;">
+            <div class="lbl" style="margin:0;">${b.label} · ${p.entry.id}${p.entry.subtipe?' · '+escapeHtml(p.entry.subtipe):''}</div>
+            <div style="display:flex; align-items:center; gap:5px; flex-shrink:0; flex-wrap:wrap;">
+              ${subtipesForBlock.length > 0 ? `<select class="regen-sub" data-ridx="${idx}" style="font-size:11px; padding:3px 4px; max-width:120px;">
+                <option value="">Semua</option>
+                ${subtipesForBlock.map(st=>`<option value="${st}" ${st===curSubFilter?'selected':''}>${st}</option>`).join('')}
+              </select>` : ''}
+              <span style="font-size:11px; color:var(--text-faint);">Emosi</span>
+              <input type="number" class="regen-lo" data-ridx="${idx}" min="1" max="10" value="${p.emosiLo||p.entry.level_emosi}" style="width:44px; padding:3px 5px; margin:0; font-size:12px;">
+              <span style="font-size:11px; color:var(--text-faint);">–</span>
+              <input type="number" class="regen-hi" data-ridx="${idx}" min="1" max="10" value="${p.emosiHi||p.entry.level_emosi}" style="width:44px; padding:3px 5px; margin:0; font-size:12px;">
+              <button class="small secondary" data-regen="${idx}" title="Generate ulang blok ini" style="white-space:nowrap;">↻ Generate ulang</button>
+            </div>
+          </div>
+          <textarea class="edit-teks" data-idx="${idx}" style="min-height:70px; font-family:inherit; font-size:14px; line-height:1.6;">${escapeHtml(p.entry.teks)}</textarea>
+          <div class="meta">Emosi ${p.entry.level_emosi} · ${p.entry.nada||'-'}${p.entry.kosakata_brand?' · '+p.entry.kosakata_brand:''}</div>
+          <div style="margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <button class="small secondary" data-save-update="${idx}">Update entri ${p.entry.id}</button>
+            <button class="small secondary" data-save-new="${idx}">Simpan sebagai entri baru</button>
+            <span class="save-status" data-status="${idx}" style="font-size:11px; color:var(--ok);"></span>
+          </div>
+        </div>`;
+      }
+    }
+    return blockHtml + insertBtn(idx);
+  }).join('');
+
+  div.innerHTML = `<div class="card"><h3 style="font-size:14px; margin:0 0 4px;">${label}</h3>
+    <p class="hint" style="margin:0 0 12px;">Edit langsung tiap blok, atau selipkan blok manual di posisi manapun buat konten yang kamu tulis sendiri.</p>
+    ${duplicateWarning ? `<div class="status-msg warn" style="margin-bottom:12px;"><i class="ti ti-alert-triangle" style="margin-right:4px;"></i>Kombinasi blok ini persis sama dengan script yang pernah kamu tandai dipakai pada ${new Date(duplicateWarning).toLocaleString('id-ID')}. Klik "Rakit ulang" kalau mau kombinasi lain.</div>` : ''}
+    ${blocksHtml}
+    <button id="btn-copy">Copy script</button>
+    <button id="btn-tandai" class="secondary">Tandai semua sudah dipakai</button>
+    <span id="copy-status" style="font-size:12px; color:var(--ok); margin-left:8px;"></span>
+  </div>`;
+
+  document.getElementById('btn-tandai').onclick = () => {
+    const scriptText = Array.from(div.querySelectorAll('.edit-teks')).map(ta => ta.value).filter(t=>t.trim()).join('\n\n');
+    const sig = computeSignature(lastAssembled);
+    lastAssembled.forEach(p => {
+      if(p.entry && p.entry.id) run("UPDATE blocks SET sudah_dipakai = sudah_dipakai + 1 WHERE id=?", [p.entry.id]);
+    });
+    run("INSERT INTO script_log (fase_key, signature, script_text, created_at) VALUES (?,?,?,?)",
+      [currentFase, sig, scriptText, new Date().toISOString()]);
+    duplicateWarning = null;
+    renderRakit();
+  };
+  document.getElementById('btn-copy').onclick = async () => {
+    const text = Array.from(div.querySelectorAll('.edit-teks')).map(ta => ta.value).filter(t=>t.trim()).join('\n\n');
+    const statusEl = document.getElementById('copy-status');
+    try{
+      await navigator.clipboard.writeText(text);
+      statusEl.textContent = 'Tersalin ke clipboard';
+    }catch(e){
+      const ta2 = document.createElement('textarea');
+      ta2.value = text; ta2.style.position = 'fixed'; ta2.style.opacity = '0';
+      document.body.appendChild(ta2); ta2.focus(); ta2.select();
+      try{ document.execCommand('copy'); statusEl.textContent = 'Tersalin ke clipboard'; }
+      catch(e2){ statusEl.textContent = 'Gagal menyalin, coba manual'; }
+      document.body.removeChild(ta2);
+    }
+    setTimeout(()=>{ if(statusEl) statusEl.textContent=''; }, 3000);
+  };
+
+  div.querySelectorAll('[data-regen]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = Number(btn.dataset.regen);
+      const loInput = div.querySelector(`.regen-lo[data-ridx="${idx}"]`);
+      const hiInput = div.querySelector(`.regen-hi[data-ridx="${idx}"]`);
+      const subSel = div.querySelector(`.regen-sub[data-ridx="${idx}"]`);
+      if(loInput && hiInput){
+        let lo = Math.max(1, Math.min(10, parseInt(loInput.value,10)||1));
+        let hi = Math.max(1, Math.min(10, parseInt(hiInput.value,10)||10));
+        if(lo > hi){ const t=lo; lo=hi; hi=t; }
+        lastAssembled[idx].emosiLo = lo;
+        lastAssembled[idx].emosiHi = hi;
+      }
+      if(subSel){
+        lastAssembled[idx].subtipeFilter = subSel.value;
+      }
+      btn.textContent = '...';
+      btn.disabled = true;
+      regenBlock(idx);
+    };
+  });
+
+  div.querySelectorAll('[data-toggle-picker]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = Number(btn.dataset.togglePicker);
+      manualPickerOpenAt = (manualPickerOpenAt === idx) ? null : idx;
+      showHasilRakit();
+    };
+  });
+  div.querySelectorAll('[data-insert-blank]').forEach(btn => {
+    btn.onclick = () => insertManualBlockBlank(Number(btn.dataset.insertBlank));
+  });
+  div.querySelectorAll('[data-insert-existing]').forEach(btn => {
+    btn.onclick = () => insertManualBlockExisting(Number(btn.dataset.insertExisting), btn.dataset.existingId);
+  });
+  div.querySelectorAll('[data-remove-manual]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = Number(btn.dataset.removeManual);
+      lastAssembled.splice(idx, 1);
+      renderRakit();
+    };
+  });
+  div.querySelectorAll('[data-save-update]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = Number(btn.dataset.saveUpdate);
+      const p = lastAssembled[idx];
+      const textarea = div.querySelector(`.edit-teks[data-idx="${idx}"]`);
+      const newText = textarea.value.trim();
+      if(!newText || !p.entry || !p.entry.id) return;
+      run("UPDATE blocks SET teks=? WHERE id=?", [newText, p.entry.id]);
+      p.entry.teks = newText;
+      const statusEl = div.querySelector(`.save-status[data-status="${idx}"]`);
+      statusEl.textContent = `Tersimpan ke ${p.entry.id}`;
+      setTimeout(()=>{ if(statusEl) statusEl.textContent=''; }, 2500);
+    };
+  });
+  div.querySelectorAll('[data-save-new]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = Number(btn.dataset.saveNew);
+      const p = lastAssembled[idx];
+      const textarea = div.querySelector(`.edit-teks[data-idx="${idx}"]`);
+      const newText = textarea.value.trim();
+      if(!newText || !p.entry) return;
+      const newId = nextId(p.blokKey);
+      run(`INSERT INTO blocks (id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai)
+           VALUES (?,?,?,?,?,?,?,?,?,0)`,
+        [newId, p.blokKey, newText, p.entry.subtipe, p.entry.fase_cocok, p.entry.level_emosi, p.entry.nada, p.entry.kosakata_brand, '']);
+      const statusEl = div.querySelector(`.save-status[data-status="${idx}"]`);
+      statusEl.textContent = `Tersimpan sebagai ${newId} baru`;
+      setTimeout(()=>{ if(statusEl) statusEl.textContent=''; }, 2500);
+    };
+  });
+  div.querySelectorAll('[data-save-manual-new]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = Number(btn.dataset.saveManualNew);
+      const p = lastAssembled[idx];
+      const textarea = div.querySelector(`.edit-teks[data-idx="${idx}"]`);
+      const newText = textarea.value.trim();
+      if(!newText) return;
+      const newId = nextId('manual');
+      run(`INSERT INTO blocks (id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai)
+           VALUES (?,?,?,?,?,?,?,?,?,0)`,
+        [newId, 'manual', newText, '', currentFase, 5, '', '', '']);
+      p.entry = { id: newId, teks: newText, subtipe: '', fase_cocok: currentFase, level_emosi: 5, nada: '', kosakata_brand: '', draft: false };
+      renderRakit();
+    };
+  });
+}
+
+function renderQc(){
+  const panel = document.getElementById('panel-qc');
+  const checkedCount = Object.values(qcChecked).filter(Boolean).length;
+
+  const scriptPreview = lastAssembled
+    ? `<div class="card" style="margin-bottom:12px;">
+         <h3 style="font-size:14px; margin:0 0 10px;">Script yang lagi dicek (dari tab Rakit Script)</h3>
+         ${lastAssembled.filter(p=>p.entry && p.entry.teks && p.entry.teks.trim()).map(p => `<div class="script-block"><div class="txt">${escapeHtml(p.entry.teks)}</div></div>`).join('')}
+       </div>`
+    : `<div class="card" style="margin-bottom:12px;">
+         <p style="font-size:13px; color:var(--text-faint); margin:0;">Belum ada script yang dirakit. Pergi ke tab Rakit Script dulu, baru balik ke sini buat cek kualitasnya.</p>
+       </div>`;
+
+  panel.innerHTML = scriptPreview + `<div class="card">
+    <h3 style="font-size:14px; margin:0 0 4px;">Checklist sebelum publish</h3>
+    <p style="font-size:12px; color:var(--text-faint); margin:0 0 6px;">Baca script di atas, lalu centang tiap poin yang lolos.</p>
+    ${QC_ITEMS.map((item,i)=>`<div class="checklist-item"><input type="checkbox" data-qc="${i}" ${qcChecked[i]?'checked':''}><span>${item}</span></div>`).join('')}
+    <div class="status-msg ${checkedCount===QC_ITEMS.length?'ok':'warn'}">
+      ${checkedCount===QC_ITEMS.length ? 'Semua poin lolos — script siap dipakai.' : (QC_ITEMS.length-checkedCount)+' poin belum dicentang. Kalau gagal di 2 poin atau lebih, sebaiknya rakit ulang.'}
+    </div>
+    <button id="btn-qc-reset" class="secondary">Reset checklist (buat cek script berikutnya)</button>
+  </div>`;
+  panel.querySelectorAll('[data-qc]').forEach(cb => {
+    cb.onchange = (e) => { qcChecked[cb.dataset.qc] = e.target.checked; renderQc(); };
+  });
+  document.getElementById('btn-qc-reset').onclick = () => {
+    qcChecked = {};
+    renderQc();
+  };
+}
+
+function renderRiwayat(){
+  const panel = document.getElementById('panel-riwayat');
+  const logs = q("SELECT * FROM script_log ORDER BY id DESC");
+  panel.innerHTML = `<div class="card">
+    <h3 style="font-size:14px; margin:0 0 4px;">Riwayat script yang sudah ditandai dipakai</h3>
+    <p class="hint" style="margin:0 0 10px;">Tiap script yang kamu tandai "sudah dipakai" di tab Rakit Script, tercatat di sini. Kombinasi blok yang identik otomatis dideteksi dan diperingatkan saat kamu rakit ulang.</p>
+    ${logs.length===0 ? '<div class="empty">Belum ada script yang ditandai dipakai.</div>' : `
+    <table><thead><tr><th>#</th><th>Fase</th><th>Tanggal</th><th>Cuplikan</th><th></th></tr></thead>
+    <tbody>${logs.map(l => `<tr>
+      <td>${l.id}</td>
+      <td>${(getFlowDef(l.fase_key) ? getFlowDef(l.fase_key)[0] : l.fase_key)}</td>
+      <td>${new Date(l.created_at).toLocaleString('id-ID')}</td>
+      <td>${escapeHtml((l.script_text||'').slice(0,60))}...</td>
+      <td><button class="small secondary" data-view-log="${l.id}">Lihat</button> <button class="small secondary" data-del-log="${l.id}">Hapus</button></td>
+    </tr>`).join('')}</tbody></table>`}
+  </div>
+  <div id="riwayat-detail"></div>`;
+
+  panel.querySelectorAll('[data-view-log]').forEach(btn => {
+    btn.onclick = () => {
+      const row = q("SELECT * FROM script_log WHERE id=?", [btn.dataset.viewLog])[0];
+      document.getElementById('riwayat-detail').innerHTML = `<div class="card">
+        <h3 style="font-size:14px; margin:0 0 10px;">Isi script #${row.id}</h3>
+        <div class="script-block"><div class="txt">${escapeHtml(row.script_text)}</div></div>
+      </div>`;
+    };
+  });
+  panel.querySelectorAll('[data-del-log]').forEach(btn => {
+    btn.onclick = () => {
+      run("DELETE FROM script_log WHERE id=?", [btn.dataset.delLog]);
+      renderRiwayat();
+    };
+  });
+}
+
+function renderFile(){
+  const panel = document.getElementById('panel-file');
+  panel.innerHTML = `<div class="card">
+    <h3 style="font-size:14px; margin:0 0 6px;">Sinkron dengan DBeaver</h3>
+    <p style="font-size:13px; color:var(--text-dim);">Data di tool ini otomatis tersimpan tiap kali kamu tambah/ubah data. Untuk membuka atau melanjutkan editing di DBeaver, unduh file-nya di sini, lalu connect ke file itu sebagai SQLite di DBeaver.</p>
+    <button id="btn-download">Unduh sebagai .sqlite</button>
+
+    <h3 style="font-size:14px; margin:22px 0 6px;">Ekspor / impor Excel (format sama)</h3>
+    <p style="font-size:13px; color:var(--text-dim);">Satu sheet, satu format, buat dua arah. Unduh, edit di Excel/Google Sheets (ubah teks yang sudah ada, tambah baris baru dengan kolom id dikosongkan), lalu import ulang file yang sama lewat tab Database — nggak perlu ubah struktur apapun.</p>
+    <button id="btn-export-xlsx">Unduh sebagai .xlsx</button>
+
+    <h3 style="font-size:14px; margin:22px 0 6px;">Ganti database</h3>
+    <p style="font-size:13px; color:var(--text-dim);">Kalau kamu sudah edit file-nya di DBeaver dan mau bawa perubahan itu balik ke sini, upload ulang di bawah ini (akan menimpa data yang sedang aktif di tool).</p>
+    <input type="file" id="file-input-2" accept=".sqlite,.db">
+  </div>`;
+  document.getElementById('btn-download').onclick = () => {
+    const bytes = db.export();
+    const blob = new Blob([bytes], {type:'application/x-sqlite3'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'script_assembler.sqlite';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById('btn-export-xlsx').onclick = () => {
+    const cols = ["id","blok","teks","subtipe","fase_cocok","level_emosi","nada","kosakata_brand","cocok_dipasang_dengan","sudah_dipakai"];
+    const allRows = q("SELECT id, blok, teks, subtipe, fase_cocok, level_emosi, nada, kosakata_brand, cocok_dipasang_dengan, sudah_dipakai FROM blocks ORDER BY blok, id");
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(allRows, { header: cols });
+    ws['!cols'] = [{wch:10},{wch:14},{wch:55},{wch:20},{wch:12},{wch:10},{wch:14},{wch:20},{wch:20},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, "Data");
+    XLSX.writeFile(wb, 'script_assembler_export.xlsx');
+  };
+  document.getElementById('file-input-2').onchange = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const buf = await file.arrayBuffer();
+    db = new SQL.Database(new Uint8Array(buf));
+    migrateSchema();
+    persist();
+    renderTab('db');
+  };
+}
+
+initEngine();
+</script>
+</body>
+</html>
